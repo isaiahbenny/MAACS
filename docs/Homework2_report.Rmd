@@ -1,0 +1,166 @@
+---
+title: "Homework 2 Report"
+output: html_document
+---
+
+## Name
+
+#### Isaiah Benny
+
+### Setup
+
+Read in the data with `read_csv()` and store the data as an R object named `dataset`. Check the data to make sure all of the expected observations and variables are there.
+
+```{r}
+## Load the data and any necessary packages here.
+suppressPackageStartupMessages(library(tidyverse))
+library(knitr)
+library(ggpubr)
+dataset <- read_csv('maacs.csv.gz')
+```
+
+## Part 1
+
+We will first consider the relationship between FEV1 and age. In general, it is expected that as children get older (and hence, larger in size), their FEV1 values should get higher.
+
+Consider the statement "FEV1 values in children are higher in older children relative to younger children".
+
+Write a function in R that takes the `dataset` object as an argument and returns `TRUE` if the statement above is true for the dataset and `FALSE` otherwise.
+
+NOTE: In order to write this function, you will need to translate the statement above into something that can be checked with the data. There are many ways in which you can do that translation correctly and you only need to pick one way here.
+
+NOTE: For this part, do not use any plots.
+
+```{r}
+## Write your function here
+higher_FEV1 <- function(dataset){
+  # predict fev1 using age
+  fit <- lm(fev1 ~ age, dataset)
+  
+  # lower bound of symmetric 95% confidence interval for slope
+  beta1_lower <- confint(fit, level = .95)[2,1]
+  
+  # return true is conf int is above zero
+  return(beta1_lower > 0)
+}
+
+higher_FEV1(dataset)
+```
+
+## Part 2
+
+Fit a linear regression model with FEV1 as the outcome and age as a predictor.
+
+How much does FEV1 change for a 1-year increase in the child's age?
+
+```{r}
+## Add your code here
+fit_age <- lm(fev1 ~ age, dataset)
+
+fit_age$coefficients[2]
+```
+
+Write your data analysis statement interpreting the regression model here:
+
+When we compare two individuals similar to the ones in this dataset who differ in age by one year, we expect the older one's FEV1 value to be greater by 0.1711623 on average.
+
+## Part 3
+
+Develop **three** supporting premises derived from the data that support the statement you wrote in Part 2. These can be plots, other summary statistics, or model results.
+
+NOTE:
+
+-   At least one supporting premise should use a plot.
+
+-   Do not use the code you write in Part 1 as a supporting premise
+
+```{r}
+## Add your code here
+# Plot of age vs FEV1
+ggplot(dataset) + geom_point(aes(x=age, y=fev1)) + labs(x="Age", y="FEV1", title="Age vs FEV1")
+
+# correlation coefficient
+paste("r = ",cor(dataset$age,dataset$fev1,use = 'complete.obs'))
+
+# new indicator variable for above mean age
+dataset$above_avg_age <- dataset$age > mean(dataset$age)
+
+aggregate(fev1~above_avg_age, data=dataset, FUN=mean) %>% kable(col.names = c("Above Average Age", "Mean FEV1"))
+```
+
+Write the three supporting premise statements here:
+
+1.  The plot of Age vs FEV1 shows an increasing trend
+
+2.  The correlation coefficient between age and FEV1 is positive
+
+3.  The average FEV1 value for children with ages above the mean age is greater than the average FEV1 value for children with ages below the mean age
+
+## Part 4
+
+For each of the supporting premises above, write a function that takes the `dataset` object as an argument and returns `TRUE` if the supporting premise statement above is true for the dataset and `FALSE` otherwise.
+
+For statements involving plots, instead of returning `TRUE` or `FALSE`, you function should do two things:
+
+1.  Produce the plot that is used in the statement
+
+2.  Produce a hypothetical version of the plot in the event that the statement is true. This can be done using simulated data or by simply hand drawing a plot.
+
+```{r}
+## Function for supporting premise statement 1
+premise1 <- function(dataset) {
+  # actual plot
+  plot1 <- ggplot(dataset) + geom_point(aes(x=age, y=fev1)) + labs(x="Age", y="FEV1", title="Actual Age vs FEV1")
+  
+  # make hypothetical data
+  hypothetical_age <- runif(150,min = min(dataset$age), max=max(dataset$age))
+  hypothetical_fev1 <- .15*hypothetical_age + rnorm(150,0,.25)
+  hypothetical_data <- data.frame(fev1=hypothetical_fev1, age=hypothetical_age)
+  
+  # hypothetical plot
+  plot2 <- ggplot(hypothetical_data) + geom_point(aes(x=age, y=fev1)) + labs(x="Age", y="FEV1", title="Hypothetical Age vs FEV1")
+  
+  # show both plots in the same pane
+  ggarrange(plot1,plot2)
+}
+```
+
+```{r}
+## Function for supporting premise statement 2
+premise2 <- function(dataset) {
+  # correlation between age and fev1
+  return(cor(dataset$age,dataset$fev1,use = 'complete.obs') > 0)
+}
+```
+
+```{r}
+## Function for supporting premise statement 3
+premise3 <- function(dataset) {
+  # make variable if it's not already there
+  if (!("above_avg_age" %in% colnames(dataset))){
+    dataset$above_avg_age <- dataset$age > mean(dataset$age)
+  }
+  
+  # check if higher ages have a higher avg FEV1 compared to lower ages and return
+  return(aggregate(fev1~above_avg_age, data=dataset, FUN=mean)[2,2] > aggregate(fev1~above_avg_age, data=dataset, FUN=mean)[1,2])
+}
+```
+
+Execute each of your function and show that the produce the expected output.
+
+```{r warning=F, fig.width=10}
+premise1(dataset)
+premise2(dataset)
+premise3(dataset)
+```
+
+
+## Part 5
+
+Describe one alternative to the primary statement "FEV1 values in children are higher in older children relative to younger children".
+
+One alternative to the primary statement is that FEV1 values in older children are lower relative to younger children. 
+
+Create a fault tree for the alternative outcome describing how the alternative outcome could be realized in the data even if the primary statement were true.
+
+Your fault tree should be created as a separate image and does not need to be created in R. Upload the image of the fault tree to Canvas.
